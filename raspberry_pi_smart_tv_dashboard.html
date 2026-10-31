@@ -24,55 +24,58 @@
       overflow-x: hidden;
     }
 
+    /* Animated Canvas Backdrop replacing plain black */
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+    }
+
     /* Dynamic Top Shelf Background Ambient Glow */
     #ambient-glow {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
-      height: 55vh;
+      height: 60vh;
       pointer-events: none;
-      transition: background 0.6s ease-out, opacity 0.6s ease-out;
-      z-index: 0;
+      transition: background 0.4s ease-out;
+      z-index: 1;
     }
 
-    /* Glassmorphism Styles */
+    /* Pi-Optimized Glassmorphism (Fast Rendering without heavy GPU backdrop-filter) */
     .glass-pill {
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: rgba(30, 41, 59, 0.7);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      transition: all 0.2s ease;
+      transition: transform 0.15s ease, background 0.15s ease;
     }
 
     .glass-pill:hover, .glass-pill:focus {
-      background: rgba(255, 255, 255, 0.22);
+      background: rgba(51, 65, 85, 0.9);
       border-color: rgba(255, 255, 255, 0.4);
       transform: scale(1.04);
     }
 
     .glass-card {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+      will-change: transform;
     }
 
-    /* Tile Focus & Hover Glow State */
+    /* TV Tile Focus & Fast Performance Hover State */
     .tv-tile {
       outline: none;
       position: relative;
     }
 
     .tv-tile:focus, .tv-tile.active-focus, .tv-tile:hover {
-      transform: translateY(-8px) scale(1.05);
-      box-shadow: 0 16px 35px -5px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(255, 255, 255, 0.85);
+      transform: translateY(-6px) scale(1.04);
+      box-shadow: 0 12px 25px -5px rgba(0, 0, 0, 0.7), 0 0 0 3px rgba(255, 255, 255, 0.9);
       z-index: 30;
-    }
-
-    .tv-tile:focus .tile-shine, .tv-tile.active-focus .tile-shine, .tv-tile:hover .tile-shine {
-      opacity: 0.25;
     }
 
     /* Drift Screensaver Animation */
@@ -102,6 +105,9 @@
   </style>
 </head>
 <body class="flex flex-col min-h-screen justify-between p-6 md:p-10 relative overflow-hidden select-none">
+
+  <!-- Canvas for Animated Wave Background -->
+  <canvas id="bg-canvas"></canvas>
 
   <!-- Dynamic Ambient Backdrop Glow -->
   <div id="ambient-glow" class="opacity-80"></div>
@@ -304,14 +310,14 @@
   <!-- ==================== IN-APP EMBED PLAYER & FLOATING BACK BUTTON ==================== -->
   <div id="app-player-container" class="fixed inset-0 bg-black z-50 hidden flex-col">
     <!-- Top Overlay Control Bar -->
-    <div id="player-top-bar" class="absolute top-0 left-0 right-0 z-50 flex justify-between items-center px-6 py-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent transition-opacity duration-300 opacity-90 hover:opacity-100">
-      <button onclick="closeAppPlayer()" class="glass-pill tv-focusable flex items-center space-x-2 px-5 py-2.5 rounded-full text-white font-bold text-sm bg-rose-600/80 hover:bg-rose-600 shadow-xl border border-white/20 cursor-pointer">
+    <div id="player-top-bar" class="absolute top-0 left-0 right-0 z-50 flex justify-between items-center px-6 py-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent">
+      <button onclick="closeAppPlayer()" class="glass-pill tv-focusable flex items-center space-x-2 px-5 py-2.5 rounded-full text-white font-bold text-sm bg-rose-600/90 hover:bg-rose-600 shadow-xl border border-white/20 cursor-pointer">
         <i data-lucide="arrow-left" class="w-5 h-5"></i>
         <span>Back to Smart TV</span>
       </button>
 
       <div class="flex items-center space-x-3">
-        <span id="player-app-title" class="text-sm font-bold text-white tracking-wide bg-black/40 px-4 py-1.5 rounded-full border border-white/10">YouTube</span>
+        <span id="player-app-title" class="text-sm font-bold text-white tracking-wide bg-black/60 px-4 py-1.5 rounded-full border border-white/10">YouTube</span>
         <button onclick="closeAppPlayer()" class="glass-pill p-2 rounded-full text-slate-300 hover:text-white cursor-pointer" title="Close App">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
@@ -319,7 +325,7 @@
     </div>
 
     <!-- App Frame / External Viewer -->
-    <iframe id="app-iframe" class="w-full h-full border-0" allow="fullscreen; autoplay; encrypted-media"></iframe>
+    <iframe id="app-iframe" class="w-full h-full border-0 bg-black" allow="fullscreen; autoplay; encrypted-media"></iframe>
   </div>
 
   <!-- Dynamic Hover Back Button Trigger for Mouse Only Users -->
@@ -337,6 +343,58 @@
 
   <!-- ==================== JAVASCRIPT LOGIC ==================== -->
   <script>
+    // Animated Wavy Canvas Background Logic
+    function initCanvasBackground() {
+      const canvas = document.getElementById('bg-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      let step = 0;
+      function animateBg() {
+        step += 0.003;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Gradient 1 (Top Blue/Purple Wave)
+        const g1 = ctx.createRadialGradient(
+          canvas.width * (0.3 + 0.2 * Math.sin(step)),
+          canvas.height * (0.2 + 0.2 * Math.cos(step * 0.8)),
+          10,
+          canvas.width * 0.5,
+          canvas.height * 0.5,
+          canvas.width * 0.7
+        );
+        g1.addColorStop(0, 'rgba(30, 27, 75, 0.45)');
+        g1.addColorStop(1, 'rgba(8, 11, 17, 0)');
+
+        // Gradient 2 (Bottom Cyan/Indigo Wave)
+        const g2 = ctx.createRadialGradient(
+          canvas.width * (0.7 + 0.2 * Math.cos(step * 0.9)),
+          canvas.height * (0.8 + 0.15 * Math.sin(step)),
+          10,
+          canvas.width * 0.5,
+          canvas.height * 0.5,
+          canvas.width * 0.6
+        );
+        g2.addColorStop(0, 'rgba(15, 118, 110, 0.25)');
+        g2.addColorStop(1, 'rgba(8, 11, 17, 0)');
+
+        ctx.fillStyle = g1;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = g2;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        requestAnimationFrame(animateBg);
+      }
+      animateBg();
+    }
+
     // App Collections for Media and Dashboard Modes
     const MEDIA_APPS = [
       {
@@ -434,16 +492,144 @@
 
     let currentMode = 'media';
     let isEthernet = true;
+    let focusableElements = [];
+    let screensaverTimeout = null;
 
     // Hardcoded Default GitHub Raw File URL
     const DEFAULT_GITHUB_RAW_URL = 'https://raw.githubusercontent.com/Braden-Johnson/SmartTV/main/raspberry_pi_smart_tv_dashboard.html';
 
+    // Clock & Date Logic
+    function updateClock() {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+
+      const clockEl = document.getElementById('clock-time');
+      if (clockEl) {
+        clockEl.innerHTML = `${formattedHours}:${minutes}<span class="text-2xl font-light text-slate-400 ml-1">${ampm}</span>`;
+      }
+
+      const dateEl = document.getElementById('clock-date');
+      if (dateEl) {
+        const options = { weekday: 'long', day: 'numeric', month: 'long' };
+        dateEl.innerText = now.toLocaleDateString('en-US', options).toUpperCase();
+      }
+
+      const screensaverTime = document.getElementById('screensaver-time');
+      if (screensaverTime) {
+        screensaverTime.innerText = `${formattedHours}:${minutes} ${ampm}`;
+      }
+
+      const greetingEl = document.getElementById('header-greeting');
+      if (greetingEl) {
+        if (hours < 12) greetingEl.innerText = 'GOOD MORNING';
+        else if (hours < 18) greetingEl.innerText = 'GOOD AFTERNOON';
+        else greetingEl.innerText = 'GOOD EVENING';
+      }
+    }
+
+    // Dynamic Tile Focus & Ambient Glow Updates
+    function handleTileFocus(el) {
+      if (!el) return;
+      document.querySelectorAll('.tv-tile').forEach(tile => tile.classList.remove('active-focus'));
+      el.classList.add('active-focus');
+
+      const title = el.getAttribute('data-title') || 'App';
+      const glow = el.getAttribute('data-glow') || 'rgba(59, 130, 246, 0.4)';
+
+      const titleEl = document.getElementById('focused-app-title');
+      if (titleEl) titleEl.innerText = title;
+
+      const ambientEl = document.getElementById('ambient-glow');
+      if (ambientEl) {
+        ambientEl.style.background = `radial-gradient(ellipse at top, ${glow} 0%, rgba(8, 11, 17, 0) 70%)`;
+      }
+    }
+
+    // Refresh Focusable Nodes for Remote/Keyboard Arrow Keys Navigation
+    function updateFocusables() {
+      focusableElements = Array.from(document.querySelectorAll('.tv-focusable, input, button'));
+    }
+
+    // Mode Switcher (Media vs Dashboard)
+    function setDashboardMode(mode) {
+      currentMode = mode;
+      const mediaBtn = document.getElementById('mode-media-btn');
+      const dashBtn = document.getElementById('mode-dash-btn');
+      const badge = document.getElementById('mode-badge');
+
+      if (mode === 'media') {
+        if (mediaBtn) mediaBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg';
+        if (dashBtn) dashBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all';
+        if (badge) badge.innerText = 'Media App';
+      } else {
+        if (dashBtn) dashBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg';
+        if (mediaBtn) mediaBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all';
+        if (badge) badge.innerText = 'Dashboard Tool';
+      }
+
+      renderAppGrid();
+    }
+
+    // Network Toggle Pill Handler
+    function toggleNetworkMode() {
+      isEthernet = !isEthernet;
+      const icon = document.getElementById('network-icon');
+      const label = document.getElementById('network-label');
+
+      if (isEthernet) {
+        if (label) label.innerText = 'Ethernet';
+        if (icon) {
+          icon.setAttribute('data-lucide', 'cable');
+          icon.className = 'w-4 h-4 text-emerald-400';
+        }
+      } else {
+        if (label) label.innerText = 'Wi-Fi';
+        if (icon) {
+          icon.setAttribute('data-lucide', 'wifi');
+          icon.className = 'w-4 h-4 text-cyan-400';
+        }
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Modals Controls
+    function toggleHudModal() {
+      const modal = document.getElementById('pi-hud-modal');
+      if (modal) modal.classList.toggle('hidden');
+    }
+
+    function openAddModal() {
+      const modal = document.getElementById('add-modal');
+      if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeAddModal() {
+      const modal = document.getElementById('add-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function closeGithubModal() {
+      const modal = document.getElementById('github-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function deleteApp(id, e) {
+      if (e) e.stopPropagation();
+      const appArray = currentMode === 'media' ? MEDIA_APPS : DASHBOARD_APPS;
+      const idx = appArray.findIndex(a => a.id === id);
+      if (idx !== -1) {
+        appArray.splice(idx, 1);
+        renderAppGrid();
+      }
+    }
+
     // GitHub Direct Sync Handler
     async function syncFromGithub() {
-      // Use saved URL if exists, otherwise fall back to hardcoded default
       const savedUrl = localStorage.getItem('github_raw_url') || DEFAULT_GITHUB_RAW_URL;
 
-      const syncBtn = document.getElementById('github-sync-btn');
       const syncIcon = document.getElementById('sync-icon');
       const syncLabel = document.getElementById('sync-label');
 
@@ -451,13 +637,11 @@
         if (syncLabel) syncLabel.innerText = 'Pulling...';
         if (syncIcon) syncIcon.classList.add('animate-spin');
 
-        // Append timestamp to bypass browser cache
         const res = await fetch(`${savedUrl}?t=${Date.now()}`);
         if (!res.ok) throw new Error(`HTTP error ${res.status}`);
 
         const newHtml = await res.text();
         
-        // Write updated code directly to local document context
         document.open();
         document.write(newHtml);
         document.close();
@@ -471,107 +655,22 @@
       }
     }
 
-    function openGithubModal() {
-      const savedUrl = localStorage.getItem('github_raw_url') || DEFAULT_GITHUB_RAW_URL;
-      document.getElementById('github-raw-url').value = savedUrl;
-      const modal = document.getElementById('github-modal');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
+    // Direct App Launch Handler
+    function launchApp(url, name, e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
       }
-    }
+      if (!url || url === '#') return;
 
-    function closeGithubModal() {
-      const modal = document.getElementById('github-modal');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-    }
+      const playerApps = ['youtube.com', 'twitch.tv'];
+      const usePlayer = playerApps.some(domain => url.includes(domain));
 
-    // Toggle Network Pill (Ethernet vs Wi-Fi)
-    function toggleNetworkMode() {
-      isEthernet = !isEthernet;
-      const icon = document.getElementById('network-icon');
-      const label = document.getElementById('network-label');
-
-      if (isEthernet) {
-        icon.setAttribute('data-lucide', 'cable');
-        icon.className = 'w-4 h-4 text-emerald-400';
-        label.innerText = 'Ethernet';
+      if (usePlayer) {
+        openAppPlayer(url, name);
       } else {
-        icon.setAttribute('data-lucide', 'wifi');
-        icon.className = 'w-4 h-4 text-cyan-400';
-        label.innerText = 'Wi-Fi';
+        window.location.href = url;
       }
-      if (window.lucide) lucide.createIcons();
-    }
-
-    // Handle Tile Focus & Dynamic Ambient Glow Update
-    function handleTileFocus(el) {
-      if (!el) return;
-      
-      // Update ambient background glow color
-      const glowColor = el.getAttribute('data-glow') || 'rgba(56, 189, 248, 0.4)';
-      const ambientGlow = document.getElementById('ambient-glow');
-      if (ambientGlow) {
-        ambientGlow.style.background = `radial-gradient(circle at 50% -20%, ${glowColor}, transparent 70%)`;
-      }
-
-      // Update Top Shelf App Title Display
-      const title = el.getAttribute('data-title');
-      const titleEl = document.getElementById('focused-app-title');
-      if (title && titleEl) {
-        titleEl.innerText = title;
-      }
-    }
-
-    // Modal Controllers for Custom Apps & GitHub Sync
-    function openAddModal() {
-      const modal = document.getElementById('add-modal');
-      if (modal) {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      }
-    }
-
-    function closeAddModal() {
-      const modal = document.getElementById('add-modal');
-      if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-      }
-    }
-
-    function saveAndSyncGithub() {
-      const urlInput = document.getElementById('github-raw-url');
-      if (urlInput && urlInput.value.trim()) {
-        localStorage.setItem('github_raw_url', urlInput.value.trim());
-        closeGithubModal();
-        syncFromGithub();
-      }
-    }
-
-    // Switch between Media and Dashboard Mode
-    function setDashboardMode(mode) {
-      currentMode = mode;
-      const mediaBtn = document.getElementById('mode-media-btn');
-      const dashBtn = document.getElementById('mode-dash-btn');
-      const badge = document.getElementById('mode-badge');
-
-      if (mode === 'media') {
-        mediaBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg';
-        dashBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all';
-        badge.innerText = 'Media App';
-        badge.className = 'px-2.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-500/30';
-      } else {
-        dashBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg';
-        mediaBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all';
-        badge.innerText = 'System Tool';
-        badge.className = 'px-2.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold uppercase tracking-wider text-purple-400 border border-purple-500/30';
-      }
-
-      renderAppGrid();
     }
 
     // Render Active Grid
@@ -583,14 +682,12 @@
 
       activeApps.forEach((app) => {
         const tileHTML = `
-          <a href="${app.url}" onclick="openAppPlayer('${app.url}', '${app.name}', event)" data-id="${app.id}" data-title="${app.name}" data-glow="${app.glow}" 
-             onfocus="handleTileFocus(this)" onmouseenter="handleTileFocus(this)"
+          <div onclick="launchApp('${app.url}', '${app.name}', event)" data-id="${app.id}" data-title="${app.name}" data-glow="${app.glow}" 
+             onfocus="handleTileFocus(this)" onmouseenter="handleTileFocus(this)" tabindex="0"
              class="tv-tile tv-focusable ${app.bgGradient || 'bg-slate-800'} glass-card rounded-2xl p-4 flex flex-col items-center justify-center h-28 cursor-pointer relative overflow-hidden group border border-white/10">
-            <!-- Glass Shine Overlay -->
-            <div class="tile-shine absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 transition duration-300 pointer-events-none"></div>
             
             <!-- Clean SVG Logo -->
-            <div class="z-10 flex items-center justify-center w-full px-2">
+            <div class="z-10 flex items-center justify-center w-full px-2 pointer-events-none">
               ${app.svg}
             </div>
 
@@ -598,7 +695,7 @@
             <button onclick="deleteApp('${app.id}', event)" class="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-slate-300 hover:text-white rounded-md opacity-0 group-hover:opacity-100 transition z-20">
               <i data-lucide="x" class="w-3 h-3"></i>
             </button>
-          </a>
+          </div>
         `;
         grid.insertAdjacentHTML('beforeend', tileHTML);
       });
@@ -606,53 +703,12 @@
       if (window.lucide) lucide.createIcons();
       updateFocusables();
 
-      // Trigger focus glow for the first item
       const firstTile = grid.querySelector('.tv-tile');
       if (firstTile) handleTileFocus(firstTile);
     }
 
-    function handleSaveTile(e) {
-      e.preventDefault();
-      const name = document.getElementById('tile-name').value;
-      const url = document.getElementById('tile-url').value;
-      const glow = document.getElementById('tile-glow').value;
-
-      const newApp = {
-        id: Date.now().toString(),
-        name,
-        url,
-        glow,
-        bgGradient: 'bg-gradient-to-b from-slate-800 to-slate-950',
-        svg: `<svg viewBox="0 0 110 40" class="h-8 w-auto"><text x="5" y="26" fill="#FFF" font-weight="bold" font-size="16" font-family="Arial, sans-serif">${name.substring(0, 9)}</text></svg>`
-      };
-
-      if (currentMode === 'media') {
-        MEDIA_APPS.push(newApp);
-      } else {
-        DASHBOARD_APPS.push(newApp);
-      }
-
-      renderAppGrid();
-      closeAddModal();
-    }
-
-    function deleteApp(id, e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (currentMode === 'media') {
-        const idx = MEDIA_APPS.findIndex(a => a.id === id);
-        if (idx !== -1) MEDIA_APPS.splice(idx, 1);
-      } else {
-        const idx = DASHBOARD_APPS.findIndex(a => a.id === id);
-        if (idx !== -1) DASHBOARD_APPS.splice(idx, 1);
-      }
-      renderAppGrid();
-    }
-
     // Fullscreen App Launcher Logic
-    function openAppPlayer(url, title, event) {
-      if (event) event.preventDefault();
-      
+    function openAppPlayer(url, title) {
       const container = document.getElementById('app-player-container');
       const iframe = document.getElementById('app-iframe');
       const titleLabel = document.getElementById('player-app-title');
@@ -660,7 +716,6 @@
 
       if (titleLabel) titleLabel.innerText = title;
 
-      // Check if URL allows iframe embedding or if direct navigation is required
       if (url && url !== '#') {
         iframe.src = url;
         container.classList.remove('hidden');
@@ -682,115 +737,36 @@
       if (trigger) trigger.classList.add('hidden');
     }
 
-    // Toggle Pi Stats HUD Modal
-    function toggleHudModal() {
-      const modal = document.getElementById('pi-hud-modal');
-      modal.classList.toggle('hidden');
-      modal.classList.toggle('flex');
-    }
-
-    // Clock & Date Logic
-    function updateClock() {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12 || 12;
-
-      document.getElementById('clock-time').innerHTML = `${hours}:${minutes}<span class="text-2xl font-light text-slate-400 ml-1.5">${ampm}</span>`;
-      document.getElementById('screensaver-time').innerText = `${hours}:${minutes} ${ampm}`;
-
-      const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' };
-      const dateString = now.toLocaleDateString('en-US', dateOptions).toUpperCase();
-      document.getElementById('clock-date').innerText = dateString;
-      document.getElementById('screensaver-date').innerText = dateString;
-
-      // Greeting Logic
-      const hr = now.getHours();
-      let greeting = "GOOD EVENING";
-      if (hr < 12) greeting = "GOOD MORNING";
-      else if (hr < 18) greeting = "GOOD AFTERNOON";
-      document.getElementById('header-greeting').innerText = greeting;
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
-
-    // System Metrics Loop (Updated SOC Temp: Safe Green -> High Red)
-    function simulatePiStats() {
-      const cpu = Math.floor(18 + Math.random() * 20);
-      const ram = (1.6 + Math.random() * 0.4).toFixed(1);
-      const temp = (40 + Math.random() * 12).toFixed(1); // 40°C to 52°C
-
-      document.getElementById('hud-cpu-text').innerText = cpu + '%';
-      document.getElementById('hud-cpu-bar').style.width = cpu + '%';
-
-      document.getElementById('hud-ram-text').innerText = `${ram} / 4.0 GB`;
-      document.getElementById('hud-ram-bar').style.width = ((ram / 4.0) * 100) + '%';
-
-      document.getElementById('hud-temp-text').innerText = temp + '°C';
-      // Temperature percentage relative to 85°C throttle max
-      const tempPct = Math.min(100, Math.max(0, ((temp - 30) / 55) * 100));
-      document.getElementById('hud-temp-bar').style.width = tempPct + '%';
-    }
-    setInterval(simulatePiStats, 3000);
-
-    // Screensaver Logic
-    let idleTimer;
+    // Screensaver Timer Reset
     function resetScreensaverTimer() {
-      document.body.classList.remove('screensaver-active');
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        document.body.classList.add('screensaver-active');
-      }, 90000); // 90 seconds idle
+      const screensaver = document.getElementById('screensaver');
+      if (screensaver) screensaver.classList.add('hidden');
+
+      clearTimeout(screensaverTimeout);
+      // Wake up / active screensaver after 5 minutes of inactivity
+      screensaverTimeout = setTimeout(() => {
+        if (screensaver) screensaver.classList.remove('hidden');
+      }, 300000);
     }
 
-    ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => {
-      window.addEventListener(evt, resetScreensaverTimer);
-    });
-
-    // TV Remote D-Pad Navigation Engine
-    let focusables = [];
-
-    function updateFocusables() {
-      focusables = Array.from(document.querySelectorAll('.tv-focusable'));
-    }
-
+    // Keyboard & Remote D-Pad Navigation Event Listener
     document.addEventListener('keydown', (e) => {
-      // Close active app or modals on Escape or Backspace key
+      resetScreensaverTimer();
+
       if (e.key === 'Escape' || e.key === 'Backspace') {
         closeAppPlayer();
+        toggleHudModal();
         closeAddModal();
         closeGithubModal();
-        return;
-      }
-
-      if (!focusables.length) return;
-
-      let index = focusables.indexOf(document.activeElement);
-
-      if (index === -1) {
-        focusables[0].focus();
-        return;
-      }
-
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        focusables[(index + 1) % focusables.length].focus();
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        focusables[(index - 1 + focusables.length) % focusables.length].focus();
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.min(index + 6, focusables.length - 1);
-        focusables[next].focus();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = Math.max(index - 6, 0);
-        focusables[prev].focus();
       }
     });
 
+    document.addEventListener('mousemove', resetScreensaverTimer);
+
     window.onload = function() {
+      initCanvasBackground();
+      updateClock();
+      setInterval(updateClock, 10000);
       renderAppGrid();
       resetScreensaverTimer();
     };
