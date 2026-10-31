@@ -435,21 +435,21 @@
     let currentMode = 'media';
     let isEthernet = true;
 
+    // Hardcoded Default GitHub Raw File URL
+    const DEFAULT_GITHUB_RAW_URL = 'https://raw.githubusercontent.com/Braden-Johnson/SmartTV/main/raspberry_pi_smart_tv_dashboard.html';
+
     // GitHub Direct Sync Handler
     async function syncFromGithub() {
-      const savedUrl = localStorage.getItem('github_raw_url');
-      if (!savedUrl) {
-        openGithubModal();
-        return;
-      }
+      // Use saved URL if exists, otherwise fall back to hardcoded default
+      const savedUrl = localStorage.getItem('github_raw_url') || DEFAULT_GITHUB_RAW_URL;
 
       const syncBtn = document.getElementById('github-sync-btn');
       const syncIcon = document.getElementById('sync-icon');
       const syncLabel = document.getElementById('sync-label');
 
       try {
-        syncLabel.innerText = 'Pulling...';
-        syncIcon.classList.add('animate-spin');
+        if (syncLabel) syncLabel.innerText = 'Pulling...';
+        if (syncIcon) syncIcon.classList.add('animate-spin');
 
         // Append timestamp to bypass browser cache
         const res = await fetch(`${savedUrl}?t=${Date.now()}`);
@@ -457,71 +457,32 @@
 
         const newHtml = await res.text();
         
-        // Write updated code directly to local document context or save for reload
+        // Write updated code directly to local document context
         document.open();
         document.write(newHtml);
         document.close();
       } catch (err) {
         console.error('Failed to sync from GitHub:', err);
-        syncLabel.innerText = 'Sync Failed';
-        syncIcon.classList.remove('animate-spin');
+        if (syncLabel) syncLabel.innerText = 'Sync Failed';
+        if (syncIcon) syncIcon.classList.remove('animate-spin');
         setTimeout(() => {
-          syncLabel.innerText = 'Sync GitHub';
+          if (syncLabel) syncLabel.innerText = 'Sync GitHub';
         }, 3000);
       }
     }
 
     function openGithubModal() {
-      const savedUrl = localStorage.getItem('github_raw_url') || '';
+      const savedUrl = localStorage.getItem('github_raw_url') || DEFAULT_GITHUB_RAW_URL;
       document.getElementById('github-raw-url').value = savedUrl;
       const modal = document.getElementById('github-modal');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-
-    function closeGithubModal() {
-      const modal = document.getElementById('github-modal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-
-    function saveAndSyncGithub() {
-      const rawUrl = document.getElementById('github-raw-url').value.trim();
-      if (rawUrl) {
-        localStorage.setItem('github_raw_url', rawUrl);
-        closeGithubModal();
-        syncFromGithub();
-      }
-    }
-
-    // Dynamic Focus & Top Ambient Glow Handler
-    function handleTileFocus(el) {
-      if (!el) return;
-      const title = el.getAttribute('data-title');
-      const glow = el.getAttribute('data-glow') || 'rgba(3, 169, 244, 0.55)';
-
-      const titleEl = document.getElementById('focused-app-title');
-      if (titleEl && title) {
-        titleEl.innerText = title;
-      }
-
-      const ambientGlow = document.getElementById('ambient-glow');
-      if (ambientGlow) {
-        ambientGlow.style.background = `radial-gradient(ellipse 80% 60% at 50% -10%, ${glow}, transparent 75%)`;
-      }
-    }
-
-    // Modal Control Functions
-    function openAddModal() {
-      const modal = document.getElementById('add-modal');
       if (modal) {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
       }
     }
 
-    function closeAddModal() {
-      const modal = document.getElementById('add-modal');
+    function closeGithubModal() {
+      const modal = document.getElementById('github-modal');
       if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
@@ -544,6 +505,51 @@
         label.innerText = 'Wi-Fi';
       }
       if (window.lucide) lucide.createIcons();
+    }
+
+    // Handle Tile Focus & Dynamic Ambient Glow Update
+    function handleTileFocus(el) {
+      if (!el) return;
+      
+      // Update ambient background glow color
+      const glowColor = el.getAttribute('data-glow') || 'rgba(56, 189, 248, 0.4)';
+      const ambientGlow = document.getElementById('ambient-glow');
+      if (ambientGlow) {
+        ambientGlow.style.background = `radial-gradient(circle at 50% -20%, ${glowColor}, transparent 70%)`;
+      }
+
+      // Update Top Shelf App Title Display
+      const title = el.getAttribute('data-title');
+      const titleEl = document.getElementById('focused-app-title');
+      if (title && titleEl) {
+        titleEl.innerText = title;
+      }
+    }
+
+    // Modal Controllers for Custom Apps & GitHub Sync
+    function openAddModal() {
+      const modal = document.getElementById('add-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeAddModal() {
+      const modal = document.getElementById('add-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    function saveAndSyncGithub() {
+      const urlInput = document.getElementById('github-raw-url');
+      if (urlInput && urlInput.value.trim()) {
+        localStorage.setItem('github_raw_url', urlInput.value.trim());
+        closeGithubModal();
+        syncFromGithub();
+      }
     }
 
     // Switch between Media and Dashboard Mode
