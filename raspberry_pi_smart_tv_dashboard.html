@@ -301,6 +301,32 @@
     </div>
   </div>
 
+  <!-- ==================== IN-APP EMBED PLAYER & FLOATING BACK BUTTON ==================== -->
+  <div id="app-player-container" class="fixed inset-0 bg-black z-50 hidden flex-col">
+    <!-- Top Overlay Control Bar -->
+    <div id="player-top-bar" class="absolute top-0 left-0 right-0 z-50 flex justify-between items-center px-6 py-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent transition-opacity duration-300 opacity-90 hover:opacity-100">
+      <button onclick="closeAppPlayer()" class="glass-pill tv-focusable flex items-center space-x-2 px-5 py-2.5 rounded-full text-white font-bold text-sm bg-rose-600/80 hover:bg-rose-600 shadow-xl border border-white/20 cursor-pointer">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span>Back to Smart TV</span>
+      </button>
+
+      <div class="flex items-center space-x-3">
+        <span id="player-app-title" class="text-sm font-bold text-white tracking-wide bg-black/40 px-4 py-1.5 rounded-full border border-white/10">YouTube</span>
+        <button onclick="closeAppPlayer()" class="glass-pill p-2 rounded-full text-slate-300 hover:text-white cursor-pointer" title="Close App">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- App Frame / External Viewer -->
+    <iframe id="app-iframe" class="w-full h-full border-0" allow="fullscreen; autoplay; encrypted-media"></iframe>
+  </div>
+
+  <!-- Dynamic Hover Back Button Trigger for Mouse Only Users -->
+  <div id="mouse-back-trigger" onclick="closeAppPlayer()" class="fixed top-3 left-3 z-50 hidden p-3 rounded-full bg-black/80 hover:bg-rose-600 text-white border border-white/20 shadow-2xl cursor-pointer transition transform hover:scale-110" title="Click to Return Home">
+    <i data-lucide="chevron-left" class="w-6 h-6"></i>
+  </div>
+
   <!-- ==================== DRIFT SCREENSAVER ==================== -->
   <div id="screensaver" class="fixed inset-0 bg-black z-50 hidden items-start justify-start pointer-events-auto cursor-pointer" onclick="resetScreensaverTimer()">
     <div id="screensaver-clock" class="p-8 text-slate-400 font-mono">
@@ -551,7 +577,7 @@
 
       activeApps.forEach((app) => {
         const tileHTML = `
-          <a href="${app.url}" target="_blank" data-id="${app.id}" data-title="${app.name}" data-glow="${app.glow}" 
+          <a href="${app.url}" onclick="openAppPlayer('${app.url}', '${app.name}', event)" data-id="${app.id}" data-title="${app.name}" data-glow="${app.glow}" 
              onfocus="handleTileFocus(this)" onmouseenter="handleTileFocus(this)"
              class="tv-tile tv-focusable ${app.bgGradient || 'bg-slate-800'} glass-card rounded-2xl p-4 flex flex-col items-center justify-center h-28 cursor-pointer relative overflow-hidden group border border-white/10">
             <!-- Glass Shine Overlay -->
@@ -615,6 +641,39 @@
         if (idx !== -1) DASHBOARD_APPS.splice(idx, 1);
       }
       renderAppGrid();
+    }
+
+    // Fullscreen App Launcher Logic
+    function openAppPlayer(url, title, event) {
+      if (event) event.preventDefault();
+      
+      const container = document.getElementById('app-player-container');
+      const iframe = document.getElementById('app-iframe');
+      const titleLabel = document.getElementById('player-app-title');
+      const trigger = document.getElementById('mouse-back-trigger');
+
+      if (titleLabel) titleLabel.innerText = title;
+
+      // Check if URL allows iframe embedding or if direct navigation is required
+      if (url && url !== '#') {
+        iframe.src = url;
+        container.classList.remove('hidden');
+        container.classList.add('flex');
+        if (trigger) trigger.classList.remove('hidden');
+      }
+    }
+
+    function closeAppPlayer() {
+      const container = document.getElementById('app-player-container');
+      const iframe = document.getElementById('app-iframe');
+      const trigger = document.getElementById('mouse-back-trigger');
+
+      if (iframe) iframe.src = '';
+      if (container) {
+        container.classList.add('hidden');
+        container.classList.remove('flex');
+      }
+      if (trigger) trigger.classList.add('hidden');
     }
 
     // Toggle Pi Stats HUD Modal
@@ -691,9 +750,11 @@
     }
 
     document.addEventListener('keydown', (e) => {
-      // Close dropdowns on outside click or back key
+      // Close active app or modals on Escape or Backspace key
       if (e.key === 'Escape' || e.key === 'Backspace') {
+        closeAppPlayer();
         closeAddModal();
+        closeGithubModal();
         return;
       }
 
