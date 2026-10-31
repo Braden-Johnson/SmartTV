@@ -42,7 +42,7 @@ def host_post(path, payload=None):
 @app.get('/')
 def index(): return send_from_directory(app.static_folder,'index.html')
 @app.get('/api/health')
-def health(): return {'ok':True,'service':'smarttv-backend','version':'1.0.0'}
+def health(): return {'ok':True,'service':'smarttv-backend','version':'1.0.1'}
 @app.get('/api/apps')
 def apps_get(): return jsonify(load_apps())
 @app.post('/api/apps')
@@ -92,4 +92,10 @@ def stats():
  except Exception: out['smarttv']={'online':False}
  return jsonify(out)
 @app.get('/api/update')
-def update_status(): return {'version':'1.0.0','channel':'main','automatic':True}
+def update_status(): return {'version':'1.0.1','channel':'main','automatic':True}
+
+@app.get('/api/network')
+def network_info():
+ try:
+  r=requests.get(HOST+'/network',timeout=2);return (r.json(),r.status_code)
+ except Exception as e:return {'error':str(e)},503

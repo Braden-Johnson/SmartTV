@@ -4,7 +4,7 @@ REPO="https://github.com/Braden-Johnson/SmartTV.git"
 APP="$HOME/SmartTV"
 echo "Installing SmartTV for $USER..."
 sudo apt-get update
-sudo apt-get install -y git docker.io python3 python3-venv python3-tk onboard xdotool curl
+sudo apt-get install -y git python3 python3-venv python3-tk onboard xdotool curl
 sudo apt-get install -y docker-compose-plugin || sudo apt-get install -y docker-compose
 if [ -d "$APP/.git" ]; then git -C "$APP" pull --ff-only; else git clone "$REPO" "$APP"; fi
 python3 -m venv "$APP/.venv"
@@ -20,3 +20,15 @@ systemctl --user daemon-reload
 systemctl --user enable --now smarttv-host.service
 loginctl enable-linger "$USER" || true
 echo "SmartTV installed. Reboot with: sudo reboot"
+
+cat > "$HOME/Desktop/SmartTV.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=SmartTV
+Comment=Launch SmartTV Dashboard
+Exec=systemctl --user restart smarttv-host.service
+Icon=video-display
+Terminal=false
+Categories=AudioVideo;
+EOF
+chmod +x "$HOME/Desktop/SmartTV.desktop"
