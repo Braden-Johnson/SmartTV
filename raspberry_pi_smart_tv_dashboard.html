@@ -680,13 +680,16 @@
       const activeApps = currentMode === 'media' ? MEDIA_APPS : DASHBOARD_APPS;
 
       activeApps.forEach((app) => {
+        // Fallback for safe rendering if svg is missing
+        const safeSvg = app.svg || `<svg viewBox="0 0 100 40" class="h-8 w-auto"><text x="10" y="25" fill="#FFF" font-weight="800" font-size="16">${app.name}</text></svg>`;
+
         const tileHTML = `
-          <div onclick="launchApp('${app.url}', '${app.name}', event)" data-id="${app.id}" data-title="${app.name}" data-glow="${app.glow}" 
+          <div onclick="launchApp('${app.url || '#'}', '${app.name}', event)" data-id="${app.id || 'app'}" data-title="${app.name}" data-glow="${app.glow || 'rgba(59,130,246,0.5)'}" 
              onfocus="handleTileFocus(this)" onmouseenter="handleTileFocus(this)" tabindex="0"
              class="tv-tile tv-focusable ${app.bgGradient || 'bg-slate-800'} glass-card rounded-2xl p-4 flex flex-col items-center justify-center h-28 cursor-pointer relative overflow-hidden group border border-white/10">
             
             <div class="z-10 flex items-center justify-center w-full px-2 pointer-events-none">
-              ${app.svg}
+              ${safeSvg}
             </div>
 
             <button onclick="deleteApp('${app.id}', event)" class="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-slate-300 hover:text-white rounded-md opacity-0 group-hover:opacity-100 transition z-20">
@@ -697,7 +700,9 @@
         grid.insertAdjacentHTML('beforeend', tileHTML);
       });
 
-      if (window.lucide) lucide.createIcons();
+      if (window.lucide) {
+        try { lucide.createIcons(); } catch(e) {}
+      }
       updateFocusables();
 
       const firstTile = grid.querySelector('.tv-tile');
