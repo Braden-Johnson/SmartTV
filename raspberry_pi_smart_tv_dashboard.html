@@ -627,6 +627,9 @@
             return res.text();
           })
           .then(newHtml => {
+            // Save the newly pulled HTML directly to browser localStorage so it persists across local sessions
+            localStorage.setItem('pi_dashboard_cached_html', newHtml);
+            
             document.open();
             document.write(newHtml);
             document.close();
@@ -761,6 +764,13 @@
     document.addEventListener('mousemove', resetScreensaverTimer);
 
     window.onload = function() {
+      // Check if we have a locally cached updated version saved in browser storage
+      const cachedHtml = localStorage.getItem('pi_dashboard_cached_html');
+      if (cachedHtml && !window.location.search.includes('fresh=true')) {
+        // Automatically use cached synced version if available
+        // (Uncomment below if you want automatic cache injection on load)
+      }
+
       initCanvasBackground();
       updateClock();
       setInterval(updateClock, 10000);
