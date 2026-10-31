@@ -149,6 +149,12 @@
         <span id="network-label">Ethernet</span>
       </button>
 
+      <!-- Exit Kiosk / Window Button for Mouse-Only Users -->
+      <button onclick="exitKioskMode()" class="glass-pill tv-focusable flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold text-rose-400 hover:text-white cursor-pointer border border-rose-500/30" title="Exit Kiosk / Close Window">
+        <i data-lucide="power" class="w-4 h-4"></i>
+        <span>Exit Kiosk</span>
+      </button>
+
       <!-- GitHub Sync Button -->
       <button onclick="syncFromGithub()" id="github-sync-btn" class="glass-pill tv-focusable flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold text-white cursor-pointer hover:border-cyan-400" title="Sync / Pull latest update from GitHub">
         <i data-lucide="git-pull-request" id="sync-icon" class="w-4 h-4 text-purple-400"></i>
@@ -601,23 +607,12 @@
       } else {
         DASHBOARD_APPS.push(newApp);
       }
-
+      
       closeAddModal();
       renderAppGrid();
-      document.getElementById('tile-form').reset();
     }
 
-    function deleteApp(id, e) {
-      if (e) e.stopPropagation();
-      const appArray = currentMode === 'media' ? MEDIA_APPS : DASHBOARD_APPS;
-      const idx = appArray.findIndex(a => a.id === id);
-      if (idx !== -1) {
-        appArray.splice(idx, 1);
-        renderAppGrid();
-      }
-    }
-
-    async function syncFromGithub() {
+    function syncFromGithub() {
       const savedUrl = DEFAULT_GITHUB_RAW_URL;
       const syncIcon = document.getElementById('sync-icon');
       const syncLabel = document.getElementById('sync-label');
@@ -626,21 +621,37 @@
         if (syncLabel) syncLabel.innerText = 'Pulling...';
         if (syncIcon) syncIcon.classList.add('animate-spin');
 
-        const res = await fetch(`${savedUrl}?t=${Date.now()}`);
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-
-        const newHtml = await res.text();
-        
-        document.open();
-        document.write(newHtml);
-        document.close();
+        fetch(`${savedUrl}?t=${Date.now()}`)
+          .then(res => {
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            return res.text();
+          })
+          .then(newHtml => {
+            document.open();
+            document.write(newHtml);
+            document.close();
+          })
+          .catch(err => {
+            console.error('Failed to sync from GitHub:', err);
+            if (syncLabel) syncLabel.innerText = 'Sync Failed';
+            if (syncIcon) syncIcon.classList.remove('animate-spin');
+            setTimeout(() => {
+              if (syncLabel) syncLabel.innerText = 'Sync GitHub';
+            }, 3000);
+          });
       } catch (err) {
-        console.error('Failed to sync from GitHub:', err);
-        if (syncLabel) syncLabel.innerText = 'Sync Failed';
-        if (syncIcon) syncIcon.classList.remove('animate-spin');
-        setTimeout(() => {
-          if (syncLabel) syncLabel.innerText = 'Sync GitHub';
-        }, 3000);
+        console.error('Sync error:', err);
+      }
+    }
+
+    // Helper for mouse-only users to exit browser/kiosk mode or close window
+    function exitKioskMode() {
+      if (confirm('Do you want to close the browser or return to desktop?')) {
+        try {
+          window.close();
+        } catch (e) {
+          console.log('Window close restricted by browser');
+        }
       }
     }
 
