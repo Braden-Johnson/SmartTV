@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raspberry Pi Smart TV Launcher</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;300;400;500;600;700;800&display=swap');
+    
+    * {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: #080b11;
+      color: #f8fafc;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Dynamic Top Shelf Background Ambient Glow */
+    #ambient-glow {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 55vh;
+      pointer-events: none;
+      transition: background 0.6s ease-out, opacity 0.6s ease-out;
+      z-index: 0;
+    }
+
+    /* Glassmorphism Styles */
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.2s ease;
+    }
+
+    .glass-pill:hover, .glass-pill:focus {
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: scale(1.04);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /* Tile Focus & Hover Glow State */
+    .tv-tile {
+      outline: none;
+      position: relative;
+    }
+
+    .tv-tile:focus, .tv-tile.active-focus, .tv-tile:hover {
+      transform: translateY(-8px) scale(1.05);
+      box-shadow: 0 16px 35px -5px rgba(0, 0, 0, 0.6), 0 0 0 3px rgba(255, 255, 255, 0.85);
+      z-index: 30;
+    }
+
+    .tv-tile:focus .tile-shine, .tv-tile.active-focus .tile-shine, .tv-tile:hover .tile-shine {
+      opacity: 0.25;
+    }
+
+    /* Drift Screensaver Animation */
+    @keyframes drift {
+      0% { transform: translate(5vw, 5vh); }
+      25% { transform: translate(60vw, 20vh); }
+      50% { transform: translate(40vw, 60vh); }
+      75% { transform: translate(10vw, 40vh); }
+      100% { transform: translate(5vw, 5vh); }
+    }
+
+    .screensaver-active #screensaver {
+      display: flex !important;
+    }
+
+    #screensaver-clock {
+      animation: drift 35s infinite ease-in-out alternate;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between p-6 md:p-10 relative overflow-hidden select-none">
+
+  <!-- Dynamic Ambient Backdrop Glow -->
+  <div id="ambient-glow" class="opacity-80"></div>
+
+  <!-- ==================== TOP BAR HEADER ==================== -->
+  <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-20 w-full max-w-7xl mx-auto">
+    <!-- Left: Time, Date & Greeting -->
+    <div>
+      <div class="text-xs font-bold tracking-widest text-slate-400 uppercase mb-0.5" id="header-greeting">
+        GOOD EVENING
+      </div>
+      <div class="flex items-baseline space-x-3">
+        <h1 id="clock-time" class="text-5xl md:text-6xl font-extralight tracking-tight text-white font-mono">
+          5:02<span class="text-2xl font-light text-slate-400 ml-1">PM</span>
+        </h1>
+      </div>
+      <div id="clock-date" class="text-xs font-semibold tracking-wider text-slate-400 uppercase mt-1">
+        SUNDAY 18 OCTOBER
+      </div>
+    </div>
+
+    <!-- Center: Mode Switcher (Media vs Dashboard) -->
+    <div class="glass-card p-1.5 rounded-full flex items-center space-x-1 border border-white/20 shadow-xl self-center md:self-auto">
+      <button id="mode-media-btn" onclick="setDashboardMode('media')" class="tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg">
+        <i data-lucide="tv" class="w-4 h-4"></i>
+        <span>Media Mode</span>
+      </button>
+      <button id="mode-dash-btn" onclick="setDashboardMode('dashboard')" class="tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+        <span>Dashboard Mode</span>
+      </button>
+    </div>
+
+    <!-- Right: Status Pills & Controls -->
+    <div class="flex items-center space-x-3 relative">
+      <!-- Ethernet / Wi-Fi Toggle Pill -->
+      <button id="network-pill" onclick="toggleNetworkMode()" class="glass-pill tv-focusable flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold text-white cursor-pointer" title="Click to toggle Network Mode">
+        <i id="network-icon" data-lucide="cable" class="w-4 h-4 text-emerald-400"></i>
+        <span id="network-label">Ethernet</span>
+      </button>
+
+      <!-- GitHub Sync Button -->
+      <button onclick="syncFromGithub()" id="github-sync-btn" class="glass-pill tv-focusable flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold text-white cursor-pointer hover:border-cyan-400" title="Sync / Pull latest update from GitHub">
+        <i data-lucide="git-pull-request" id="sync-icon" class="w-4 h-4 text-purple-400"></i>
+        <span id="sync-label">Sync GitHub</span>
+      </button>
+
+      <!-- Pi Specs HUD Toggle Pill -->
+      <button onclick="toggleHudModal()" class="glass-pill tv-focusable flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-semibold text-white cursor-pointer">
+        <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+        <span>Pi Stats</span>
+      </button>
+
+      <!-- Settings / Add App Button -->
+      <button onclick="openAddModal()" class="glass-pill tv-focusable p-2 rounded-full text-white cursor-pointer" title="Add Custom App">
+        <i data-lucide="plus" class="w-4 h-4 text-slate-300"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN CONTENT & TOP SHELF ==================== -->
+  <main class="relative z-10 w-full max-w-7xl mx-auto my-auto space-y-8 pt-8">
+
+    <!-- Active Featured Title Display -->
+    <div class="transition-all duration-300 transform translate-y-0">
+      <div class="flex items-center space-x-2">
+        <span id="mode-badge" class="px-2.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-500/30">
+          Media App
+        </span>
+      </div>
+      <h2 id="focused-app-title" class="text-4xl md:text-5xl font-extrabold text-white tracking-wide drop-shadow-md mt-1">
+        Netflix
+      </h2>
+      <p id="focused-app-subtitle" class="text-xs md:text-sm font-medium text-slate-300/80 mt-1">
+        Press Enter or Tap to Launch
+      </p>
+    </div>
+
+    <!-- MAIN APP GRID DOCK -->
+    <div id="app-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-5">
+      <!-- Dynamic SVGs & Custom Tiles inserted via JavaScript -->
+    </div>
+  </main>
+
+  <!-- ==================== PI STATS & HUD OVERLAY ==================== -->
+  <div id="pi-hud-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-center justify-center p-6 z-50">
+    <div class="glass-card w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-white/20 relative space-y-6">
+      <div class="flex justify-between items-center pb-3 border-b border-white/10">
+        <div class="flex items-center space-x-3">
+          <div class="p-2 bg-cyan-500/20 rounded-xl text-cyan-300">
+            <i data-lucide="cpu" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Raspberry Pi SoC HUD</h3>
+            <p class="text-xs text-slate-400 font-mono">BCM2711 • 192.168.1.150</p>
+          </div>
+        </div>
+        <button onclick="toggleHudModal()" class="p-2 rounded-full hover:bg-white/10 text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-5">
+        <!-- CPU Line -->
+        <div>
+          <div class="flex justify-between text-xs font-semibold mb-1.5">
+            <span class="text-slate-300">CPU Usage</span>
+            <span id="hud-cpu-text" class="text-cyan-400 font-mono">24%</span>
+          </div>
+          <div class="w-full bg-slate-800/80 rounded-full h-2.5 overflow-hidden p-0.5 border border-white/5">
+            <div id="hud-cpu-bar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-1.5 rounded-full transition-all duration-500" style="width: 24%"></div>
+          </div>
+        </div>
+
+        <!-- RAM Line -->
+        <div>
+          <div class="flex justify-between text-xs font-semibold mb-1.5">
+            <span class="text-slate-300">Memory (4GB LPDDR4)</span>
+            <span id="hud-ram-text" class="text-purple-400 font-mono">1.8 / 4.0 GB</span>
+          </div>
+          <div class="w-full bg-slate-800/80 rounded-full h-2.5 overflow-hidden p-0.5 border border-white/5">
+            <div id="hud-ram-bar" class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: 45%"></div>
+          </div>
+        </div>
+
+        <!-- SoC Temperature Line (Corrected: GREEN to RED) -->
+        <div>
+          <div class="flex justify-between text-xs font-semibold mb-1.5">
+            <span class="text-slate-300">SoC Temperature</span>
+            <span id="hud-temp-text" class="text-emerald-400 font-mono font-bold">42.5°C</span>
+          </div>
+          <!-- Bar gradient strictly goes from GREEN (cool) on the left to RED (hot) on the right -->
+          <div class="w-full bg-slate-800/80 rounded-full h-2.5 overflow-hidden p-0.5 border border-white/5 relative">
+            <div id="hud-temp-bar" class="bg-gradient-to-r from-emerald-500 via-amber-500 to-rose-600 h-1.5 rounded-full transition-all duration-500" style="width: 42%"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+            <span>30°C (Safe)</span>
+            <span>60°C</span>
+            <span>85°C (Throttle)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 text-center">
+        <button onclick="toggleHudModal()" class="px-6 py-2 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl transition">
+          Close HUD
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ADD / EDIT TILE MODAL ==================== -->
+  <div id="add-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+    <div class="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-white/20 relative">
+      <div class="flex justify-between items-center mb-5">
+        <h3 class="text-lg font-bold text-white flex items-center">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-cyan-400 mr-2"></i>
+          Add Custom TV App
+        </h3>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="tile-form" onsubmit="handleSaveTile(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">App Title</label>
+          <input type="text" id="tile-name" required placeholder="e.g. Moonlight Stream" class="w-full bg-slate-900/80 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500">
+        </div>
+
+  <!-- ==================== GITHUB SYNC CONFIG MODAL ==================== -->
+  <div id="github-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-center justify-center p-4 z-50">
+    <div class="glass-card w-full max-w-md rounded-3xl p-6 shadow-2xl border border-white/20 relative space-y-4">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-white flex items-center">
+          <i data-lucide="github" class="w-5 h-5 text-purple-400 mr-2"></i>
+          GitHub Sync Setup
+        </h3>
+        <button onclick="closeGithubModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        Paste the Raw URL of your <code class="text-cyan-400">smart_tv_dashboard.html</code> file on GitHub (e.g. <span class="font-mono text-[10px] text-slate-400">https://raw.githubusercontent.com/username/repo/main/smart_tv_dashboard.html</span>).
+      </p>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-300 mb-1">Raw GitHub File URL</label>
+        <input type="text" id="github-raw-url" placeholder="https://raw.githubusercontent.com/..." class="w-full bg-slate-900/80 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 font-mono">
+      </div>
+
+      <div class="pt-3 flex justify-end space-x-3 border-t border-white/10">
+        <button onclick="closeGithubModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+        <button onclick="saveAndSyncGithub()" class="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-purple-500/20">Save & Pull Update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DRIFT SCREENSAVER ==================== -->
+  <div id="screensaver" class="fixed inset-0 bg-black z-50 hidden items-start justify-start pointer-events-auto cursor-pointer" onclick="resetScreensaverTimer()">
+    <div id="screensaver-clock" class="p-8 text-slate-400 font-mono">
+      <div id="screensaver-time" class="text-7xl font-extralight text-white">00:00</div>
+      <div id="screensaver-date" class="text-sm uppercase tracking-widest mt-2 text-slate-500">Press Any Key To Wake</div>
+    </div>
+  </div>
+
+  <!-- ==================== JAVASCRIPT LOGIC ==================== -->
+  <script>
+    // App Collections for Media and Dashboard Modes
+    const MEDIA_APPS = [
+      {
+        id: 'netflix',
+        name: 'Netflix',
+        url: 'https://netflix.com',
+        glow: 'rgba(229, 9, 20, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-neutral-900 to-black',
+        svg: `<svg viewBox="0 0 100 40" class="h-8 w-auto"><path fill="#E50914" d="M22 2l12 36h-8L14 8v30H6V2h8l12 30V2z"/><text x="40" y="27" fill="#FFF" font-weight="900" font-size="20" font-family="Arial, sans-serif">NETFLIX</text></svg>`
+      },
+      {
+        id: 'prime',
+        name: 'Prime Video',
+        url: 'https://primevideo.com',
+        glow: 'rgba(0, 168, 225, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-sky-950 to-blue-900',
+        svg: `<svg viewBox="0 0 120 40" class="h-8 w-auto"><text x="5" y="25" fill="#FFF" font-weight="800" font-size="18" font-family="Arial, sans-serif">prime video</text><path d="M10 32c25 6 65 6 85-3m-8 0l10 3-4-9" stroke="#00A8E1" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`
+      },
+      {
+        id: 'youtube',
+        name: 'YouTube',
+        url: 'https://youtube.com/tv',
+        glow: 'rgba(255, 0, 0, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-neutral-900 to-red-950',
+        svg: `<svg viewBox="0 0 120 40" class="h-8 w-auto"><rect x="5" y="8" width="34" height="24" rx="7" fill="#FF0000"/><polygon points="19,14 28,20 19,26" fill="#FFFFFF"/><text x="45" y="26" fill="#FFF" font-weight="800" font-size="19" font-family="Arial, sans-serif">YouTube</text></svg>`
+      },
+      {
+        id: 'appletv',
+        name: 'Apple TV',
+        url: 'https://tv.apple.com',
+        glow: 'rgba(255, 255, 255, 0.35)',
+        bgGradient: 'bg-gradient-to-b from-neutral-800 to-black',
+        svg: `<svg viewBox="0 0 110 40" class="h-8 w-auto"><path fill="#FFF" d="M14 11c1-.9 1.6-2.1 1.4-3.3-1.1.1-2.4.7-3.1 1.6-.7.8-1.2 2-1 3.2 1.2.1 2.4-.6 2.7-1.5zm1.5 2c-1.7 0-3.1 1-3.9 1-.8 0-2-.9-3.4-.9-1.8 0-3.4 1-4.3 2.6-1.9 3.2-.5 8 1.3 10.6.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.9 3.4-.9s2.1.9 3.4.9c1.3 0 2.2-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.8-1.1-2.8-4.2 0-2.6 2.1-3.9 2.2-4-1.2-1.8-3.1-2-3.6-2.1z"/><text x="28" y="27" fill="#FFF" font-weight="800" font-size="20" font-family="Arial, sans-serif">tv</text></svg>`
+      },
+      {
+        id: 'apple-music',
+        name: 'Apple Music',
+        url: 'https://music.apple.com',
+        glow: 'rgba(250, 36, 60, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-rose-900 to-black',
+        svg: `<svg viewBox="0 0 120 40" class="h-8 w-auto"><path fill="#FA243C" d="M18 8v16.5c-.8-.4-1.8-.6-2.8-.4-2.2.4-3.7 2.2-3.3 4.1.4 1.9 2.5 3.1 4.7 2.7 1.8-.3 3.1-1.8 3.1-3.5V13.5l10-2.5v11.5c-.8-.4-1.8-.6-2.8-.4-2.2.4-3.7 2.2-3.3 4.1.4 1.9 2.5 3.1 4.7 2.7 1.8-.3 3.1-1.8 3.1-3.5V8L18 10.5z"/><text x="38" y="26" fill="#FFF" font-weight="800" font-size="18" font-family="Arial, sans-serif">Music</text></svg>`
+      },
+      {
+        id: 'twitch',
+        name: 'Twitch',
+        url: 'https://twitch.tv',
+        glow: 'rgba(145, 70, 255, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-purple-900 to-slate-950',
+        svg: `<svg viewBox="0 0 110 40" class="h-8 w-auto"><path fill="#9146FF" d="M10 5L3 12v20h7v5h5l5-5h6l9-9V5H10zm25 16l-5 5h-7l-5 5v-5h-5V9h22v12z"/><text x="40" y="27" fill="#FFF" font-weight="800" font-size="19" font-family="Arial, sans-serif">twitch</text></svg>`
+      },
+      {
+        id: 'plex',
+        name: 'Plex Server',
+        url: 'http://192.168.1.150:32400/web',
+        glow: 'rgba(229, 160, 13, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-amber-800 to-zinc-950',
+        svg: `<svg viewBox="0 0 100 40" class="h-8 w-auto"><polygon points="12,6 2,34 10,34 20,6" fill="#E5A00D"/><polygon points="22,6 12,34 20,34 30,6" fill="#FFF"/><text x="36" y="27" fill="#FFF" font-weight="800" font-size="20" font-family="Arial, sans-serif">PLEX</text></svg>`
+      }
+    ];
+
+    const DASHBOARD_APPS = [
+      {
+        id: 'homeassistant',
+        name: 'Home Assistant',
+        url: 'http://homeassistant.local:8123',
+        glow: 'rgba(3, 169, 244, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-sky-700 to-slate-950',
+        svg: `<svg viewBox="0 0 140 40" class="h-8 w-auto"><path fill="#03A9F4" d="M16 6L2 18h4v16h20V18h4L16 6zm0 18a3 3 0 110-6 3 3 0 010 6z"/><text x="34" y="26" fill="#FFF" font-weight="800" font-size="15" font-family="Arial, sans-serif">Home Assistant</text></svg>`
+      },
+      {
+        id: 'pihole',
+        name: 'Pi-hole Admin',
+        url: 'http://192.168.1.150/admin',
+        glow: 'rgba(240, 82, 82, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-rose-900 to-neutral-950',
+        svg: `<svg viewBox="0 0 110 40" class="h-8 w-auto"><path fill="#F05252" d="M16 4L4 9v10c0 9 7 15 12 17 5-2 12-8 12-17V9L16 4z"/><text x="34" y="26" fill="#FFF" font-weight="800" font-size="18" font-family="Arial, sans-serif">Pi-hole</text></svg>`
+      },
+      {
+        id: 'portainer',
+        name: 'Portainer',
+        url: 'http://192.168.1.150:9000',
+        glow: 'rgba(13, 148, 136, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-teal-800 to-slate-950',
+        svg: `<svg viewBox="0 0 120 40" class="h-8 w-auto"><rect x="4" y="10" width="24" height="20" rx="4" fill="#0D9488"/><text x="34" y="26" fill="#FFF" font-weight="800" font-size="17" font-family="Arial, sans-serif">Portainer</text></svg>`
+      },
+      {
+        id: 'files',
+        name: 'Local Storage / Shares',
+        url: '#',
+        glow: 'rgba(168, 85, 247, 0.55)',
+        bgGradient: 'bg-gradient-to-b from-purple-900 to-slate-950',
+        svg: `<svg viewBox="0 0 120 40" class="h-8 w-auto"><path fill="#A855F7" d="M4 10h10l4 4h12v16H4V10z"/><text x="34" y="26" fill="#FFF" font-weight="800" font-size="16" font-family="Arial, sans-serif">Storage</text></svg>`
+      }
+    ];
+
+    let currentMode = 'media';
+    let isEthernet = true;
+
+    // GitHub Direct Sync Handler
+    async function syncFromGithub() {
+      const savedUrl = localStorage.getItem('github_raw_url');
+      if (!savedUrl) {
+        openGithubModal();
+        return;
+      }
+
+      const syncBtn = document.getElementById('github-sync-btn');
+      const syncIcon = document.getElementById('sync-icon');
+      const syncLabel = document.getElementById('sync-label');
+
+      try {
+        syncLabel.innerText = 'Pulling...';
+        syncIcon.classList.add('animate-spin');
+
+        // Append timestamp to bypass browser cache
+        const res = await fetch(`${savedUrl}?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+
+        const newHtml = await res.text();
+        
+        // Write updated code directly to local document context or save for reload
+        document.open();
+        document.write(newHtml);
+        document.close();
+      } catch (err) {
+        console.error('Failed to sync from GitHub:', err);
+        syncLabel.innerText = 'Sync Failed';
+        syncIcon.classList.remove('animate-spin');
+        setTimeout(() => {
+          syncLabel.innerText = 'Sync GitHub';
+        }, 3000);
+      }
+    }
+
+    function openGithubModal() {
+      const savedUrl = localStorage.getItem('github_raw_url') || '';
+      document.getElementById('github-raw-url').value = savedUrl;
+      const modal = document.getElementById('github-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeGithubModal() {
+      const modal = document.getElementById('github-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveAndSyncGithub() {
+      const rawUrl = document.getElementById('github-raw-url').value.trim();
+      if (rawUrl) {
+        localStorage.setItem('github_raw_url', rawUrl);
+        closeGithubModal();
+        syncFromGithub();
+      }
+    }
+
+    // Dynamic Focus & Top Ambient Glow Handler
+    function handleTileFocus(el) {
+      if (!el) return;
+      const title = el.getAttribute('data-title');
+      const glow = el.getAttribute('data-glow') || 'rgba(3, 169, 244, 0.55)';
+
+      const titleEl = document.getElementById('focused-app-title');
+      if (titleEl && title) {
+        titleEl.innerText = title;
+      }
+
+      const ambientGlow = document.getElementById('ambient-glow');
+      if (ambientGlow) {
+        ambientGlow.style.background = `radial-gradient(ellipse 80% 60% at 50% -10%, ${glow}, transparent 75%)`;
+      }
+    }
+
+    // Modal Control Functions
+    function openAddModal() {
+      const modal = document.getElementById('add-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeAddModal() {
+      const modal = document.getElementById('add-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    }
+
+    // Toggle Network Pill (Ethernet vs Wi-Fi)
+    function toggleNetworkMode() {
+      isEthernet = !isEthernet;
+      const icon = document.getElementById('network-icon');
+      const label = document.getElementById('network-label');
+
+      if (isEthernet) {
+        icon.setAttribute('data-lucide', 'cable');
+        icon.className = 'w-4 h-4 text-emerald-400';
+        label.innerText = 'Ethernet';
+      } else {
+        icon.setAttribute('data-lucide', 'wifi');
+        icon.className = 'w-4 h-4 text-cyan-400';
+        label.innerText = 'Wi-Fi';
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Switch between Media and Dashboard Mode
+    function setDashboardMode(mode) {
+      currentMode = mode;
+      const mediaBtn = document.getElementById('mode-media-btn');
+      const dashBtn = document.getElementById('mode-dash-btn');
+      const badge = document.getElementById('mode-badge');
+
+      if (mode === 'media') {
+        mediaBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg';
+        dashBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all';
+        badge.innerText = 'Media App';
+        badge.className = 'px-2.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold uppercase tracking-wider text-cyan-400 border border-cyan-500/30';
+      } else {
+        dashBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold transition-all bg-white text-black shadow-lg';
+        mediaBtn.className = 'tv-focusable flex items-center space-x-2 px-5 py-2 rounded-full text-xs font-bold text-slate-400 hover:text-white transition-all';
+        badge.innerText = 'System Tool';
+        badge.className = 'px-2.5 py-0.5 rounded-md bg-white/10 text-[10px] font-bold uppercase tracking-wider text-purple-400 border border-purple-500/30';
+      }
+
+      renderAppGrid();
+    }
+
+    // Render Active Grid
+    function renderAppGrid() {
+      const grid = document.getElementById('app-grid');
+      grid.innerHTML = '';
+
+      const activeApps = currentMode === 'media' ? MEDIA_APPS : DASHBOARD_APPS;
+
+      activeApps.forEach((app) => {
+        const tileHTML = `
+          <a href="${app.url}" target="_blank" data-id="${app.id}" data-title="${app.name}" data-glow="${app.glow}" 
+             onfocus="handleTileFocus(this)" onmouseenter="handleTileFocus(this)"
+             class="tv-tile tv-focusable ${app.bgGradient || 'bg-slate-800'} glass-card rounded-2xl p-4 flex flex-col items-center justify-center h-28 cursor-pointer relative overflow-hidden group border border-white/10">
+            <!-- Glass Shine Overlay -->
+            <div class="tile-shine absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 transition duration-300 pointer-events-none"></div>
+            
+            <!-- Clean SVG Logo -->
+            <div class="z-10 flex items-center justify-center w-full px-2">
+              ${app.svg}
+            </div>
+
+            <!-- Delete Tile Action -->
+            <button onclick="deleteApp('${app.id}', event)" class="absolute top-2 right-2 p-1 bg-black/60 hover:bg-rose-600 text-slate-300 hover:text-white rounded-md opacity-0 group-hover:opacity-100 transition z-20">
+              <i data-lucide="x" class="w-3 h-3"></i>
+            </button>
+          </a>
+        `;
+        grid.insertAdjacentHTML('beforeend', tileHTML);
+      });
+
+      if (window.lucide) lucide.createIcons();
+      updateFocusables();
+
+      // Trigger focus glow for the first item
+      const firstTile = grid.querySelector('.tv-tile');
+      if (firstTile) handleTileFocus(firstTile);
+    }
+
+    function handleSaveTile(e) {
+      e.preventDefault();
+      const name = document.getElementById('tile-name').value;
+      const url = document.getElementById('tile-url').value;
+      const glow = document.getElementById('tile-glow').value;
+
+      const newApp = {
+        id: Date.now().toString(),
+        name,
+        url,
+        glow,
+        bgGradient: 'bg-gradient-to-b from-slate-800 to-slate-950',
+        svg: `<svg viewBox="0 0 110 40" class="h-8 w-auto"><text x="5" y="26" fill="#FFF" font-weight="bold" font-size="16" font-family="Arial, sans-serif">${name.substring(0, 9)}</text></svg>`
+      };
+
+      if (currentMode === 'media') {
+        MEDIA_APPS.push(newApp);
+      } else {
+        DASHBOARD_APPS.push(newApp);
+      }
+
+      renderAppGrid();
+      closeAddModal();
+    }
+
+    function deleteApp(id, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (currentMode === 'media') {
+        const idx = MEDIA_APPS.findIndex(a => a.id === id);
+        if (idx !== -1) MEDIA_APPS.splice(idx, 1);
+      } else {
+        const idx = DASHBOARD_APPS.findIndex(a => a.id === id);
+        if (idx !== -1) DASHBOARD_APPS.splice(idx, 1);
+      }
+      renderAppGrid();
+    }
+
+    // Toggle Pi Stats HUD Modal
+    function toggleHudModal() {
+      const modal = document.getElementById('pi-hud-modal');
+      modal.classList.toggle('hidden');
+      modal.classList.toggle('flex');
+    }
+
+    // Clock & Date Logic
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+
+      document.getElementById('clock-time').innerHTML = `${hours}:${minutes}<span class="text-2xl font-light text-slate-400 ml-1.5">${ampm}</span>`;
+      document.getElementById('screensaver-time').innerText = `${hours}:${minutes} ${ampm}`;
+
+      const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' };
+      const dateString = now.toLocaleDateString('en-US', dateOptions).toUpperCase();
+      document.getElementById('clock-date').innerText = dateString;
+      document.getElementById('screensaver-date').innerText = dateString;
+
+      // Greeting Logic
+      const hr = now.getHours();
+      let greeting = "GOOD EVENING";
+      if (hr < 12) greeting = "GOOD MORNING";
+      else if (hr < 18) greeting = "GOOD AFTERNOON";
+      document.getElementById('header-greeting').innerText = greeting;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // System Metrics Loop (Updated SOC Temp: Safe Green -> High Red)
+    function simulatePiStats() {
+      const cpu = Math.floor(18 + Math.random() * 20);
+      const ram = (1.6 + Math.random() * 0.4).toFixed(1);
+      const temp = (40 + Math.random() * 12).toFixed(1); // 40°C to 52°C
+
+      document.getElementById('hud-cpu-text').innerText = cpu + '%';
+      document.getElementById('hud-cpu-bar').style.width = cpu + '%';
+
+      document.getElementById('hud-ram-text').innerText = `${ram} / 4.0 GB`;
+      document.getElementById('hud-ram-bar').style.width = ((ram / 4.0) * 100) + '%';
+
+      document.getElementById('hud-temp-text').innerText = temp + '°C';
+      // Temperature percentage relative to 85°C throttle max
+      const tempPct = Math.min(100, Math.max(0, ((temp - 30) / 55) * 100));
+      document.getElementById('hud-temp-bar').style.width = tempPct + '%';
+    }
+    setInterval(simulatePiStats, 3000);
+
+    // Screensaver Logic
+    let idleTimer;
+    function resetScreensaverTimer() {
+      document.body.classList.remove('screensaver-active');
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        document.body.classList.add('screensaver-active');
+      }, 90000); // 90 seconds idle
+    }
+
+    ['mousemove', 'keydown', 'click', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, resetScreensaverTimer);
+    });
+
+    // TV Remote D-Pad Navigation Engine
+    let focusables = [];
+
+    function updateFocusables() {
+      focusables = Array.from(document.querySelectorAll('.tv-focusable'));
+    }
+
+    document.addEventListener('keydown', (e) => {
+      // Close dropdowns on outside click or back key
+      if (e.key === 'Escape' || e.key === 'Backspace') {
+        closeAddModal();
+        return;
+      }
+
+      if (!focusables.length) return;
+
+      let index = focusables.indexOf(document.activeElement);
+
+      if (index === -1) {
+        focusables[0].focus();
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        focusables[(index + 1) % focusables.length].focus();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        focusables[(index - 1 + focusables.length) % focusables.length].focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = Math.min(index + 6, focusables.length - 1);
+        focusables[next].focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = Math.max(index - 6, 0);
+        focusables[prev].focus();
+      }
+    });
+
+    window.onload = function() {
+      renderAppGrid();
+      resetScreensaverTimer();
+    };
+  </script>
+</body>
+</html>
