@@ -1,0 +1,11 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SmartTV</title><link rel="stylesheet" href="/styles.css"></head><body>
+<canvas id="bg"></canvas><div id="ambient"></div>
+<header><div><div id="greeting" class="eyebrow">GOOD EVENING</div><div id="clock">--:--</div><div id="date" class="eyebrow">LOADING</div></div>
+<div class="modes"><button id="mediaBtn" class="active">Media Mode</button><button id="dashBtn">Dashboard Mode</button></div>
+<div class="actions"><span id="network" class="pill">● Checking</span><button data-action="exit" class="danger">Exit</button><button id="statsBtn">Pi Stats</button><button id="addBtn">＋</button></div></header>
+<main><div id="badge">MEDIA APP</div><h1 id="focusTitle">SmartTV</h1><p>Click an app to launch</p><section id="grid"></section></main>
+<div id="toast"></div>
+<div id="statsModal" class="modal hidden"><div class="panel wide"><button class="close" data-close="statsModal">×</button><h2>Raspberry Pi & SmartTV</h2><div id="statsContent" class="stats">Loading…</div></div></div>
+<div id="appModal" class="modal hidden"><form id="appForm" class="panel"><button type="button" class="close" data-close="appModal">×</button><h2>Add custom app</h2><label>Name<input id="appName" required maxlength="50"></label><label>URL<input id="appUrl" required type="url" placeholder="https://..."></label><label>Mode<select id="appMode"><option value="media">Media</option><option value="dashboard">Dashboard</option></select></label><button class="primary">Save app</button></form></div>
+<div id="screen" class="screen hidden"><div id="screenClock"></div><small>Move the mouse to wake</small></div>
+<script src="/app.js"></script></body></html>

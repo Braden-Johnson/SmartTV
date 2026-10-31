@@ -1,0 +1,17 @@
+[Unit]
+Description=SmartTV Chromium host agent
+After=graphical-session.target docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=-%h/SmartTV/scripts/update-onboot.sh
+ExecStart=%h/SmartTV/.venv/bin/python %h/SmartTV/host-agent/agent.py
+WorkingDirectory=%h/SmartTV
+Environment=DISPLAY=:0
+Environment=SMARTTV_HOME=http://127.0.0.1:8765
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
